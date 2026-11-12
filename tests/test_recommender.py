@@ -59,3 +59,26 @@ def test_explain_recommendation_returns_non_empty_string():
     explanation = rec.explain_recommendation(user, song)
     assert isinstance(explanation, str)
     assert explanation.strip() != ""
+
+
+def test_closer_energy_scores_higher():
+    from src.recommender import score_song
+    song_a = {"genre": "x", "mood": "x", "energy": 0.8, "acousticness": 0.5}
+    song_b = {"genre": "x", "mood": "x", "energy": 0.3, "acousticness": 0.5}
+    prefs = {"genre": "y", "mood": "y", "energy": 0.8}
+    assert score_song(prefs, song_a)[0] > score_song(prefs, song_b)[0]
+
+
+def test_score_returns_reasons():
+    from src.recommender import score_song
+    song = {"genre": "pop", "mood": "happy", "energy": 0.8, "acousticness": 0.2}
+    score, reasons = score_song({"genre": "pop", "mood": "happy", "energy": 0.8}, song)
+    assert score == 4.0
+    assert any("genre match" in r for r in reasons)
+
+
+def test_load_songs_converts_numbers():
+    from src.recommender import load_songs
+    songs = load_songs("data/songs.csv")
+    assert len(songs) == 20
+    assert isinstance(songs[0]["energy"], float)
