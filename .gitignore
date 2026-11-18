@@ -13,3 +13,10 @@ venv/
 
 # Pytest cache
 .pytest_cache/
+
+# Secrets (Gemini API key)
+.env
+*.env
+
+# Runtime logs
+logs/

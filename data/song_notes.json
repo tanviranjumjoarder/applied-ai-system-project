@@ -1,0 +1,22 @@
+{
+  "1": {"note": "Bright synth-pop with a big singalong chorus and handclaps. Feels like a sunny morning commute.", "good_for": ["morning", "commute", "getting ready", "summer"]},
+  "2": {"note": "Dusty lofi beat with soft keys and vinyl crackle. Steady and unobtrusive, made for long late-night sessions at a desk.", "good_for": ["coding", "studying", "late night", "homework"]},
+  "3": {"note": "Loud guitar rock with pounding drums and a fast tempo. Pure adrenaline from the first bar.", "good_for": ["workout", "running", "gym", "road trip"]},
+  "4": {"note": "Gentle lofi piano layered over the sound of rain on a window. Very calm, almost sleepy.", "good_for": ["studying", "reading", "rainy day", "sleep"]},
+  "5": {"note": "Pumping pop anthem with a heavy kick drum and a shouted hook. Built for pushing through the last set.", "good_for": ["workout", "gym", "running", "hype"]},
+  "6": {"note": "Slow ambient pads with no drums at all. Floaty and spacious, like drifting in zero gravity.", "good_for": ["sleep", "meditation", "relaxing", "rainy day"]},
+  "7": {"note": "Soft jazz trio with brushed drums, upright bass and warm piano. Sounds like a quiet cafe in the afternoon.", "good_for": ["reading", "cafe", "dinner", "studying"]},
+  "8": {"note": "Moody synthwave with a driving bassline and neon 80s synths. Made for city lights after dark.", "good_for": ["night drive", "late night", "gaming", "road trip"]},
+  "9": {"note": "Minimal lofi loop with a soft guitar and no vocals. Keeps a steady pulse that helps you stay on task.", "good_for": ["studying", "focus", "coding", "work"]},
+  "10": {"note": "Jangly indie pop with shimmery guitars and a warm, hopeful vocal. Easy to like on the first listen.", "good_for": ["summer", "friends", "road trip", "morning"]},
+  "11": {"note": "Confident hip hop with a punchy beat and swaggering verses. Head-nod energy without being frantic.", "good_for": ["getting ready", "commute", "gym", "hype"]},
+  "12": {"note": "Slow solo piano piece in a minor key. Quiet, sad and reflective.", "good_for": ["sleep", "reflection", "rainy day", "heartbreak"]},
+  "13": {"note": "Warm country tune with acoustic guitar and pedal steel about driving back to a childhood town.", "good_for": ["road trip", "nostalgia", "evening", "home"]},
+  "14": {"note": "Crushing heavy metal with down-tuned guitars and blast beats. Aggressive and very loud.", "good_for": ["workout", "venting", "gym", "anger"]},
+  "15": {"note": "Smooth r&b slow jam with silky vocals and a laid-back groove.", "good_for": ["date night", "dinner", "evening", "romance"]},
+  "16": {"note": "Easygoing reggae with an offbeat guitar skank and a sunny, relaxed bounce.", "good_for": ["beach", "summer", "relaxing", "friends"]},
+  "17": {"note": "Huge festival EDM track with a long build and a massive drop. Euphoric and nonstop.", "good_for": ["party", "dancing", "workout", "hype"]},
+  "18": {"note": "Quiet folk song with fingerpicked acoustic guitar and a soft, sad voice.", "good_for": ["heartbreak", "rainy day", "reflection", "evening"]},
+  "19": {"note": "Upbeat latin pop with bright horns and a reggaeton rhythm. Hard to sit still to.", "good_for": ["dancing", "party", "summer", "friends"]},
+  "20": {"note": "Slow electric blues with a crying guitar and a smoky late-night feel.", "good_for": ["late night", "evening", "reflection", "bar"]}
+}
