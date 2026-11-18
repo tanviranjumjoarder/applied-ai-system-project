@@ -1,0 +1,56 @@
+flowchart TD
+    U([Listener types a request<br/>"something calm for a rainy study night"]) --> G1
+
+    subgraph Guardrails_in [Input guardrail - src/guardrails.py]
+        G1{Empty or over 300 chars?}
+    end
+    G1 -- yes --> R1([Polite refusal])
+    G1 -- no --> P
+
+    subgraph Parse [Parser - src/parser.py]
+        P[Gemini turns request into JSON profile<br/>genre, mood, energy, acoustic, keywords, is_music_request]
+        V[Validate every field<br/>unknown genre/mood dropped, energy clamped,<br/>genre kept only if the request names it]
+        F[Rule-based parser<br/>used offline or if Gemini fails]
+        P --> V
+        P -. error / bad JSON .-> F
+    end
+    V --> M{Music request?}
+    F --> M
+    M -- no --> R2([Refusal: music only])
+    M -- yes --> RET
+
+    subgraph Retrieve [Retriever - src/retriever.py]
+        DB[(data/songs.csv<br/>20 songs)]
+        KB[(data/song_notes.json<br/>notes + good-for tags)]
+        RET[Score every song:<br/>genre + mood + energy + acousticness<br/>+ request words found in notes]
+        C[Confidence = top score / best possible]
+        DB --> RET
+        KB --> RET
+        RET --> C
+    end
+    C --> E
+
+    subgraph Explain [Explainer + self-check - src/pipeline.py]
+        E[Gemini explains ONLY the retrieved songs<br/>using their notes and score reasons]
+        SC{Self-check:<br/>names only retrieved songs<br/>and covers all of them?}
+        T[Template explanation<br/>built straight from the data]
+        E --> SC
+        SC -- fail, first time --> E
+        SC -- fail twice / API down --> T
+    end
+    SC -- pass --> OUT
+    T --> OUT
+    OUT([Top 5 songs + explanation + confidence + parser notes])
+
+    LOG[[logs/vibefinder.log<br/>every step recorded]]
+    Parse -.-> LOG
+    Retrieve -.-> LOG
+    Explain -.-> LOG
+
+    subgraph Testing [Testing and human review]
+        PT[pytest: 21 tests with a fake Gemini<br/>junk JSON, invented songs, outages]
+        EV[src/evaluate.py: 14 labeled requests<br/>refusal, genre, top pick, grounding, consistency]
+        H[Human: I labeled acceptable top picks<br/>and read every live explanation]
+    end
+    EV -.-> OUT
+    H -.-> EV
