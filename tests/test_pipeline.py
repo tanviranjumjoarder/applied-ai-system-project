@@ -187,3 +187,52 @@ def test_off_topic_request_is_refused_before_retrieval():
     result = VibeFinder(llm=None).recommend("what is the capital of france")
     assert result.refused is True
     assert result.recommendations == []
+
+
+# ---------- stretch features: notes ablation, few-shot prompt, decision trace ----------
+
+def test_turning_off_notes_changes_the_rainy_study_pick():
+    with_notes = VibeFinder(llm=None).recommend("something calm for a rainy study night")
+    without = VibeFinder(llm=None, use_notes=False).recommend("something calm for a rainy study night")
+    assert with_notes.recommendations[0]["song"]["title"] == "Library Rain"
+    assert without.recommendations[0]["song"]["title"] != "Library Rain"
+    assert not any("notes mention" in r for x in without.recommendations for r in x["reasons"])
+
+
+class PromptSpy(FakeLLM):
+    def generate(self, prompt, json_mode=False, temperature=0.2):
+        if json_mode:
+            self.last_parse_prompt = prompt
+        return super().generate(prompt, json_mode, temperature)
+
+
+def test_fewshot_prompt_includes_examples_and_baseline_does_not():
+    for style, expected in (("fewshot", True), ("baseline", False)):
+        spy = PromptSpy(json_replies=[profile_json()], text_replies=[])
+        VibeFinder(llm=spy, parser_style=style).recommend("chill lofi for studying")
+        assert ("songs for cleaning the house" in spy.last_parse_prompt) is expected
+
+
+def test_trace_records_each_decision():
+    from src.pipeline import trace_to_markdown
+    result = VibeFinder(llm=None).recommend("hype rap for the gym")
+    steps = [t["step"] for t in result.trace]
+    assert steps[:3] == ["input guardrail", "parse", "route"]
+    assert "retrieve" in steps and "confidence" in steps and steps[-1] == "answer"
+    assert "| 1 | input guardrail | pass |" in trace_to_markdown(result)
+
+
+def test_trace_shows_retry_then_fallback():
+    bot = VibeFinder(llm=FakeLLM(json_replies=[profile_json(genre="lofi")],
+                                 text_replies=["Try Gym Hero!", "Try Iron Tide!"]))
+    result = bot.recommend("chill lofi for studying")
+    decisions = [t["decision"] for t in result.trace]
+    assert "FAIL: retry with feedback" in decisions
+    assert "FAIL: give up on model" in decisions
+    assert "fallback: use template" in decisions
+
+
+def test_refusal_trace_stops_before_retrieval():
+    result = VibeFinder(llm=None).recommend("what is the capital of france")
+    assert result.trace[-1]["decision"].startswith("REFUSE")
+    assert all(t["step"] != "retrieve" for t in result.trace)

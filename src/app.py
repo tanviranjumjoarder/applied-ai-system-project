@@ -4,13 +4,17 @@ VibeFinder 2.0 command line app.
     python -m src.app "something calm for a rainy study night"
     python -m src.app                      # interactive mode
     python -m src.app --offline "..."      # skip Gemini (rules + template)
+    python -m src.app --trace evaluation/agent_traces.md "..."   # save the decision trace
+    python -m src.app --no-notes "..."     # turn off the song-notes search (RAG ablation)
+    python -m src.app --parser-style baseline "..."   # parser prompt without few-shot examples
 """
 
 import argparse
 import os
 
 from src.llm import make_client
-from src.pipeline import ROOT, VibeFinder, setup_logging
+from src.parser import PARSER_STYLES
+from src.pipeline import ROOT, VibeFinder, setup_logging, trace_to_markdown
 
 
 def load_env():
@@ -53,6 +57,9 @@ def main():
     parser = argparse.ArgumentParser(description="VibeFinder 2.0 music recommender")
     parser.add_argument("request", nargs="*", help="what you want to listen to")
     parser.add_argument("--offline", action="store_true", help="do not call Gemini")
+    parser.add_argument("--no-notes", action="store_true", help="turn off the song-notes search")
+    parser.add_argument("--parser-style", choices=PARSER_STYLES, default="fewshot")
+    parser.add_argument("--trace", metavar="FILE", help="append the decision trace (markdown) to FILE")
     args = parser.parse_args()
 
     load_env()
@@ -60,10 +67,18 @@ def main():
     llm = None if args.offline else make_client()
     if llm is None:
         print("(offline mode: rule-based parser and template explanations)\n")
-    bot = VibeFinder(llm=llm)
+    bot = VibeFinder(llm=llm, use_notes=not args.no_notes, parser_style=args.parser_style)
+
+    def run(request):
+        result = bot.recommend(request)
+        print(format_result(result))
+        if args.trace:
+            with open(args.trace, "a", encoding="utf-8") as f:
+                f.write(trace_to_markdown(result) + "\n")
+            print(f"(decision trace appended to {args.trace})")
 
     if args.request:
-        print(format_result(bot.recommend(" ".join(args.request))))
+        run(" ".join(args.request))
         return
 
     print("VibeFinder 2.0. Describe what you want to hear, or press Enter to quit.")
@@ -74,7 +89,7 @@ def main():
             break
         if not request:
             break
-        print(format_result(bot.recommend(request)))
+        run(request)
 
 
 if __name__ == "__main__":

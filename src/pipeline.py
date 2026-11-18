@@ -68,12 +68,30 @@ class Result:
     explainer: str = ""
     check_passed: Optional[bool] = None
     check_problems: List[str] = field(default_factory=list)
+    # Decision trace: one entry per step, {"step", "decision", "detail"}
+    trace: List[dict] = field(default_factory=list)
+
+    def note(self, step, decision, detail=""):
+        self.trace.append({"step": step, "decision": decision, "detail": detail})
+
+
+def trace_to_markdown(result):
+    """Render a run's decision trace as a markdown table."""
+    lines = [f"**Request:** `{result.request or '(empty)'}`", "",
+             "| # | Step | Decision | Detail |", "|---|------|----------|--------|"]
+    for i, t in enumerate(result.trace, 1):
+        detail = str(t["detail"]).replace("|", "/").replace("\n", " ")
+        lines.append(f"| {i} | {t['step']} | {t['decision']} | {detail} |")
+    return "\n".join(lines) + "\n"
 
 
 class VibeFinder:
-    def __init__(self, llm=None, songs_path=None, notes_path=None, k=5):
+    def __init__(self, llm=None, songs_path=None, notes_path=None, k=5,
+                 use_notes=True, parser_style="fewshot"):
         self.llm = llm
         self.k = k
+        self.use_notes = use_notes
+        self.parser_style = parser_style
         self.songs = load_songs(songs_path or os.path.join(ROOT, "data", "songs.csv"))
         self.notes = load_notes(notes_path or os.path.join(ROOT, "data", "song_notes.json"))
         self.genres = {s["genre"] for s in self.songs}
@@ -93,14 +111,19 @@ class VibeFinder:
             )
         return "\n".join(lines)
 
-    def explain(self, request, results, conf_value, conf_label):
+    def explain(self, request, results, conf_value, conf_label, result=None):
         """
         Ask the model to explain the picks, then check its work.
         One retry with the problems spelled out; after that, fall back to the template.
         Returns (text, explainer_name, passed, problems).
         """
         retrieved_titles = [r["song"]["title"] for r in results]
+        def note(step, decision, detail=""):
+            if result is not None:
+                result.note(step, decision, detail)
+
         if self.llm is None:
+            note("explain", "offline: use template", "no model available")
             return template_explanation(results, conf_label), "template (offline)", True, []
 
         feedback = ""
@@ -118,9 +141,13 @@ class VibeFinder:
             except LLMUnavailable as exc:
                 log.warning("Explanation call failed (attempt %d): %s", attempt, exc)
                 problems = [f"model unavailable: {exc}"]
+                note(f"explain (attempt {attempt})", "model call failed", exc)
                 break
             passed, problems = check_explanation(text, retrieved_titles, self.titles)
             log.info("Self-check attempt %d: %s %s", attempt, "PASS" if passed else "FAIL", problems)
+            note(f"self-check (attempt {attempt})", "PASS: keep answer" if passed else
+                 ("FAIL: retry with feedback" if attempt == 1 else "FAIL: give up on model"),
+                 "; ".join(problems) or f"names all {len(retrieved_titles)} retrieved songs and no others")
             if passed:
                 return text, "gemini" if attempt == 1 else "gemini (after retry)", True, []
             feedback = (
@@ -128,6 +155,7 @@ class VibeFinder:
             )
 
         log.warning("Falling back to template explanation: %s", problems)
+        note("explain", "fallback: use template", "built straight from the retrieved data")
         return template_explanation(results, conf_label), "template (fallback)", False, problems
 
     # ---------- full pipeline ----------
@@ -139,30 +167,46 @@ class VibeFinder:
         ok, message = check_request(request)
         if not ok:
             log.info("Rejected by input guardrail: %s", message)
+            result.note("input guardrail", "REJECT", message)
             result.refused, result.message = True, message
             return result
+        result.note("input guardrail", "pass", f"{len(request)} characters")
 
-        profile, parser, notes = parse_request(request, self.llm, self.genres, self.moods)
+        profile, parser, notes = parse_request(
+            request, self.llm, self.genres, self.moods, style=self.parser_style
+        )
         result.profile, result.parser, result.parse_notes = profile, parser, notes
         log.info("Parsed with %s: %s", parser, profile)
+        shown = {k: v for k, v in profile.items() if k != "is_music_request"}
+        result.note("parse", f"used {parser}" + (f" ({self.parser_style} prompt)" if parser == "gemini" else ""), shown)
+        for fix in notes:
+            result.note("validate profile", "fix applied", fix)
 
         if not profile["is_music_request"]:
             log.info("Refused: not a music request")
+            result.note("route", "REFUSE: not a music request", "stop before retrieval")
             result.refused, result.message = True, REFUSAL_OFF_TOPIC
             return result
+        result.note("route", "music request: retrieve", "notes search " + ("on" if self.use_notes else "off"))
 
-        results = retrieve(profile, self.songs, self.notes, k=self.k)
+        results = retrieve(profile, self.songs, self.notes, k=self.k, use_notes=self.use_notes)
         result.recommendations = results
-        result.confidence, result.confidence_label = confidence(results, profile)
+        result.confidence, result.confidence_label = confidence(results, profile, use_notes=self.use_notes)
         log.info(
             "Retrieved: %s | confidence %.2f (%s)",
             [(r["song"]["title"], r["score"]) for r in results],
             result.confidence, result.confidence_label,
         )
+        result.note("retrieve", f"top {len(results)} picked",
+                    ", ".join(f"{r['song']['title']} {r['score']:.2f}" for r in results))
+        result.note("confidence", result.confidence_label,
+                    f"{result.confidence:.2f} = top score / best possible"
+                    + (" -> tell the listener it is a weak match" if result.confidence_label == "low" else ""))
 
         text, explainer, passed, problems = self.explain(
-            request, results, result.confidence, result.confidence_label
+            request, results, result.confidence, result.confidence_label, result
         )
         result.explanation, result.explainer = text, explainer
         result.check_passed, result.check_problems = passed, problems
+        result.note("answer", f"explainer: {explainer}", "grounded" if passed else "template after failed checks")
         return result

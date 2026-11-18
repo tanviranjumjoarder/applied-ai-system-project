@@ -54,7 +54,7 @@ def scoring_profile(profile):
     return prefs
 
 
-def max_possible_score(profile, weights=None):
+def max_possible_score(profile, weights=None, use_notes=True):
     """Best score a perfect song could get for this profile (used for confidence)."""
     w = weights or WEIGHTS
     total = w["energy"]
@@ -64,13 +64,14 @@ def max_possible_score(profile, weights=None):
         total += w["mood"]
     if profile.get("likes_acoustic") is not None:
         total += w["acoustic"]
-    if profile.get("keywords"):
+    if use_notes and profile.get("keywords"):
         total += NOTE_POINTS_CAP
     return total
 
 
-def retrieve(profile, songs, notes, k=5, weights=None):
+def retrieve(profile, songs, notes, k=5, weights=None, use_notes=True):
     """
+    use_notes=False turns off the knowledge-base search (used for the before/after comparison).
     Returns a list of dicts, best first:
         {"song": {...}, "note": {...}, "score": float, "reasons": [str]}
     """
@@ -80,7 +81,7 @@ def retrieve(profile, songs, notes, k=5, weights=None):
     for song in songs:
         score, reasons = score_song(prefs, song, weights)
         note = notes.get(song["id"])
-        matched = note_matches(keywords, note)
+        matched = note_matches(keywords, note) if use_notes else []
         if matched:
             bonus = min(NOTE_POINTS_CAP, NOTE_POINTS_PER_MATCH * len(matched))
             score += bonus
@@ -90,13 +91,13 @@ def retrieve(profile, songs, notes, k=5, weights=None):
     return results[:k]
 
 
-def confidence(results, profile, weights=None):
+def confidence(results, profile, weights=None, use_notes=True):
     """
     How sure the system is about its #1 pick, from 0 to 1:
     the top score as a share of the best possible score for this profile.
     """
     if not results:
         return 0.0, "none"
-    value = round(results[0]["score"] / max_possible_score(profile, weights), 2)
+    value = round(results[0]["score"] / max_possible_score(profile, weights, use_notes), 2)
     label = "high" if value >= 0.75 else "medium" if value >= 0.5 else "low"
     return value, label

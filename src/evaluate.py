@@ -22,6 +22,7 @@ import time
 from src.app import load_env
 from src.guardrails import check_explanation
 from src.llm import make_client
+from src.parser import PARSER_STYLES, parse_with_rules
 from src.pipeline import ROOT, VibeFinder, setup_logging
 
 CASES_PATH = os.path.join(ROOT, "evaluation", "test_cases.json")
@@ -41,6 +42,10 @@ def evaluate_case(bot, case):
     row = {"request": case["request"] or "(empty)", "checks": {}, "result": r}
 
     row["checks"]["refusal"] = r.refused == case["expect_refusal"]
+    # Invented mood: the parsed profile has a mood but the request contains no mood word
+    # the rule parser knows. Not a pass/fail check, tracked as a measure of over-guessing.
+    row["invented_mood"] = bool(r.profile and r.profile.get("mood") and not r.refused
+                                and parse_with_rules(case["request"])["mood"] is None)
     if case["expect_refusal"] or r.refused:
         row["top1"] = "(refused)"
         return row
@@ -57,12 +62,12 @@ def evaluate_case(bot, case):
     return row
 
 
-def run(offline, pause):
+def run(offline, pause, use_notes=True, parser_style="fewshot"):
     load_env()
     setup_logging()
     llm = None if offline else make_client()
     mode = "offline" if llm is None else "live"
-    bot = VibeFinder(llm=llm)
+    bot = VibeFinder(llm=llm, use_notes=use_notes, parser_style=parser_style)
     cases = json.load(open(CASES_PATH, encoding="utf-8"))
 
     rows = []
@@ -84,8 +89,8 @@ def run(offline, pause):
     return mode, rows, consistency
 
 
-def to_markdown(mode, rows, consistency):
-    lines = [f"# Evaluation results ({mode})", ""]
+def to_markdown(mode, rows, consistency, settings=""):
+    lines = [f"# Evaluation results ({mode})", "", f"Settings: {settings}", ""]
     lines.append("| # | Request | Parser | Top pick | Confidence | Explainer | Checks | Result |")
     lines.append("|---|---------|--------|----------|------------|-----------|--------|--------|")
     totals = {}
@@ -108,6 +113,9 @@ def to_markdown(mode, rows, consistency):
     lines.append(f"- Cases fully passed: **{passed_cases} / {len(rows)}**")
     for name, (passed, seen) in totals.items():
         lines.append(f"- {name}: {passed} / {seen}")
+    invented = [row["request"] for row in rows if row.get("invented_mood")]
+    lines.append(f"- Moods the model added that the request never stated: {len(invented)}"
+                 + (f" ({'; '.join(invented)})" if invented else ""))
     answered = [row["result"] for row in rows if not row["result"].refused]
     if answered:
         avg = sum(r.confidence for r in answered) / len(answered)
@@ -134,12 +142,19 @@ def to_markdown(mode, rows, consistency):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--offline", action="store_true")
+    parser.add_argument("--no-notes", action="store_true", help="turn off the song-notes search")
+    parser.add_argument("--parser-style", choices=PARSER_STYLES, default="fewshot")
     parser.add_argument("--pause", type=float, default=4.5, help="seconds between live calls (free tier allows 15 per minute)")
     args = parser.parse_args()
 
-    mode, rows, consistency = run(args.offline, args.pause)
-    report = to_markdown(mode, rows, consistency)
-    out = os.path.join(ROOT, "evaluation", f"results_{mode}.md")
+    mode, rows, consistency = run(args.offline, args.pause, not args.no_notes, args.parser_style)
+    settings = f"notes search {'off' if args.no_notes else 'on'}"
+    suffix = "_no-notes" if args.no_notes else ""
+    if mode == "live":
+        settings += f", parser prompt: {args.parser_style}"
+        suffix += "" if args.parser_style == "fewshot" else f"_{args.parser_style}"
+    report = to_markdown(mode, rows, consistency, settings)
+    out = os.path.join(ROOT, "evaluation", f"results_{mode}{suffix}.md")
     with open(out, "w", encoding="utf-8") as f:
         f.write(report)
     print(report)
