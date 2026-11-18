@@ -8,7 +8,7 @@ flowchart TD
     G1 -- no --> P
 
     subgraph Parse [Parser - src/parser.py]
-        P[Gemini turns request into JSON profile<br/>genre, mood, energy, acoustic, keywords, is_music_request]
+        P[Gemini few-shot prompt turns request into JSON profile<br/>genre, mood, energy, acoustic, keywords, is_music_request]
         V[Validate every field<br/>unknown genre/mood dropped, energy clamped,<br/>genre kept only if the request names it]
         F[Rule-based parser<br/>used offline or if Gemini fails]
         P --> V
@@ -42,14 +42,14 @@ flowchart TD
     T --> OUT
     OUT([Top 5 songs + explanation + confidence + parser notes])
 
-    LOG[[logs/vibefinder.log<br/>every step recorded]]
+    LOG[[logs/vibefinder.log + decision trace<br/>every step recorded, --trace saves it to markdown]]
     Parse -.-> LOG
     Retrieve -.-> LOG
     Explain -.-> LOG
 
     subgraph Testing [Testing and human review]
-        PT[pytest: 21 tests with a fake Gemini<br/>junk JSON, invented songs, outages]
-        EV[src/evaluate.py: 14 labeled requests<br/>refusal, genre, top pick, grounding, consistency]
+        PT[pytest: 26 tests with a fake Gemini<br/>junk JSON, invented songs, outages]
+        EV[src/evaluate.py: 14 labeled requests<br/>refusal, genre, top pick, grounding, consistency,<br/>notes on/off and baseline vs few-shot runs]
         H[Human: I labeled acceptable top picks<br/>and read every live explanation]
     end
     EV -.-> OUT
