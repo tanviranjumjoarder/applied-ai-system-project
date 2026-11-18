@@ -1,5 +1,7 @@
 # Evaluation results (offline)
 
+Settings: notes search on
+
 | # | Request | Parser | Top pick | Confidence | Explainer | Checks | Result |
 |---|---------|--------|----------|------------|-----------|--------|--------|
 | 1 | something calm for a rainy study night | rules | Library Rain | 0.98 high | template (offline) | refusal ok, genre ok, top-1 ok, grounded ok | Pass |
@@ -24,6 +26,7 @@
 - genre: 11 / 11
 - top-1: 11 / 11
 - grounded: 11 / 11
+- Moods the model added that the request never stated: 0
 - Average confidence on answered requests: 0.98
 - Explanations that needed a retry or fallback: 0 / 11
 - Consistency (same top 5 on a repeat run): 3 / 3
