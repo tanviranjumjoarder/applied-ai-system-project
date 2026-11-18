@@ -315,3 +315,22 @@ model_card.md               responsible-AI reflection, limitations, evaluation, 
 presentation.md             presentation plan
 assets/                     images for the README (optional)
 ```
+
+## Rubric map
+
+Where to find the evidence for each Project 4 criterion.
+
+| Criterion | Where it is |
+|---|---|
+| Base project named and described | [Base project](#base-project) (Module 3 Music Recommender Simulation, with a 1.0 vs 2.0 table) |
+| Substantial AI feature, integrated and functional | RAG over the catalog + song notes, Gemini parsing and grounded explanations, self-check: [Architecture overview](#architecture-overview), `src/pipeline.py` |
+| Architecture diagram (Mermaid source, data flow, matches code) | [`diagrams/architecture.mmd`](diagrams/architecture.mmd) and the embedded copy in [Architecture overview](#architecture-overview) |
+| End-to-end demo with commands and outputs | [Setup](#setup) and [Sample interactions](#sample-interactions); more in [`evaluation/sample_runs.md`](evaluation/sample_runs.md) |
+| Consistent responses to 2-3 inputs | Five sample runs; repeat-run consistency 3/3 in [`evaluation/results_live.md`](evaluation/results_live.md) |
+| Reliability / guardrail component with input-behavior-result examples | [Guardrail and reliability examples](#guardrail-and-reliability-examples), `src/guardrails.py`, `src/evaluate.py` |
+| README: goals, install / run / test steps, sample I/O | This README: summary at the top, [Setup](#setup), [Sample interactions](#sample-interactions) |
+| Reflection: how AI was used, one suggestion accepted and one rejected or revised, limitations, future work | [`model_card.md`](model_card.md) sections 7 to 11 |
+| Stretch: RAG enhancement with before/after | [Stretch features](#stretch-features), [`model_card.md`](model_card.md) section 13 |
+| Stretch: agentic decision chain with saved traces | [`ai_interactions.md`](ai_interactions.md) and [`evaluation/agent_traces.md`](evaluation/agent_traces.md) |
+| Stretch: specialization, baseline vs specialized with measured differences | [`model_card.md`](model_card.md) section 12 |
+| Stretch: evaluation script that prints a summary | `python -m src.evaluate`, output in [Testing summary](#testing-summary) |
