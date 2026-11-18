@@ -81,6 +81,12 @@ def test_rules_parser_prefers_longer_genre_name():
     assert parse_with_rules("some indie pop please")["genre"] == "indie pop"
 
 
+def test_rules_parser_does_not_read_k_pop_as_pop():
+    # Found by the evaluation harness: "k-pop" used to be parsed as "pop".
+    assert parse_with_rules("k-pop for dancing")["genre"] is None
+    assert parse_with_rules("some hip-hop")["genre"] == "hip hop"
+
+
 def test_rules_parser_flags_off_topic():
     assert parse_with_rules("what is the capital of france")["is_music_request"] is False
 

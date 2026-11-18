@@ -8,10 +8,28 @@ system runs in offline mode (rule-based parsing and template explanations).
 
 import logging
 import os
+import re
+import time
 
 log = logging.getLogger("vibefinder.llm")
 
 MODEL_NAME = "gemini-flash-lite-latest"
+MAX_RATE_LIMIT_WAIT = 40  # seconds we are willing to wait once on a 429
+
+
+def short_error(exc):
+    """One-line version of an API error (the raw 429 message is several hundred characters)."""
+    text = str(exc).split("{")[0].strip() or type(exc).__name__
+    return f"{type(exc).__name__}: {text[:120]}"
+
+
+def suggested_wait(exc):
+    """Seconds the API asked us to wait, if this is a rate-limit error."""
+    text = str(exc)
+    if "429" not in text and "RESOURCE_EXHAUSTED" not in text:
+        return None
+    match = re.search(r"retry in ([0-9.]+)s", text)
+    return min(MAX_RATE_LIMIT_WAIT, float(match.group(1)) + 1) if match else 20.0
 
 
 class LLMUnavailable(RuntimeError):
@@ -37,13 +55,20 @@ class GeminiClient:
             temperature=temperature,
             response_mime_type="application/json" if json_mode else "text/plain",
         )
-        try:
-            response = self.client.models.generate_content(
-                model=self.model, contents=prompt, config=config
-            )
-        except Exception as exc:  # network errors, 403/429, bad model name, ...
-            log.warning("Gemini call failed: %s: %s", type(exc).__name__, exc)
-            raise LLMUnavailable(f"{type(exc).__name__}: {exc}") from exc
+        for attempt in (1, 2):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model, contents=prompt, config=config
+                )
+                break
+            except Exception as exc:  # network errors, 403/429, bad model name, ...
+                wait = suggested_wait(exc)
+                if attempt == 1 and wait is not None:
+                    log.warning("Rate limited, waiting %.0fs then retrying once", wait)
+                    time.sleep(wait)
+                    continue
+                log.warning("Gemini call failed: %s", short_error(exc))
+                raise LLMUnavailable(short_error(exc)) from exc
 
         text = (response.text or "").strip()
         if not text:

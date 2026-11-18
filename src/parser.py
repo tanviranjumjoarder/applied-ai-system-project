@@ -30,7 +30,7 @@ STOPWORDS = {
 # Longer names first so "indie pop" wins over "pop".
 GENRE_ALIASES = [
     ("indie pop", "indie pop"), ("hip hop", "hip hop"), ("hip-hop", "hip hop"), ("rap", "hip hop"),
-    ("lo-fi", "lofi"), ("lofi", "lofi"), ("synthwave", "synthwave"), ("r&b", "r&b"), ("rnb", "r&b"),
+    ("lo-fi", "lofi"), ("lofi", "lofi"), ("synthwave", "synthwave"), ("synth", "synthwave"), ("r&b", "r&b"), ("rnb", "r&b"),
     ("classical", "classical"), ("country", "country"), ("metal", "metal"), ("reggae", "reggae"),
     ("edm", "edm"), ("electronic dance", "edm"), ("folk", "folk"), ("latin", "latin"),
     ("reggaeton", "latin"), ("blues", "blues"), ("jazz", "jazz"), ("ambient", "ambient"),
@@ -65,7 +65,8 @@ MUSIC_SIGNALS = {"song", "songs", "music", "playlist", "track", "tracks", "liste
 
 
 def _has(text, phrase):
-    return re.search(r"(?<![a-z])" + re.escape(phrase) + r"(?![a-z])", text) is not None
+    # A hyphen counts as part of a word, so "k-pop" does not match "pop".
+    return re.search(r"(?<![a-z-])" + re.escape(phrase) + r"(?![a-z-])", text) is not None
 
 
 def extract_keywords(text):
